@@ -246,6 +246,28 @@ def style_props(style_id: str):
     return with_gap, full_mode, with_border
 
 
+def has_left_cap(variant: str) -> bool:
+    return variant in {"l", "s"}
+
+
+def left_cap_hidden(levels: tuple[int, ...]) -> bool:
+    return all(level > 0 for level in levels)
+
+
+def should_emit_bar_glyph(lanes: int, style_id: str, variant: str, levels: tuple[int, ...]) -> bool:
+    no_border = style_id.endswith("n")
+    if lanes == 1 and style_id.startswith("g"):
+        return False
+    if no_border:
+        if all(level == 0 for level in levels):
+            return False
+        if variant != "m":
+            return False
+    if has_left_cap(variant) and left_cap_hidden(levels):
+        return False
+    return True
+
+
 def generate_donut2() -> None:
     cy = H / 2.0
 
@@ -357,16 +379,10 @@ def main() -> int:
         with_gap, full_mode, with_border = style_props(style_id)
         bounds = lane_bounds(lanes, with_gap, full_mode)
         prefix = f"bar{lanes}_{style_id}"
-        skip_empty_no_border = not with_border
 
         for levels, state in state_iter(lanes):
-            if skip_empty_no_border and all(level == 0 for level in levels):
-                # Runtime renders no-border empty bar cells as plain spaces.
-                continue
             for variant, flags in variants.items():
-                if flags["left_cap"] and (
-                    not with_border or all(level > 0 for level in levels)
-                ):
+                if not should_emit_bar_glyph(lanes, style_id, variant, levels):
                     continue
                 x0 = OUTER_PAD if flags["left_cap"] else 0
                 x1 = W - OUTER_PAD if flags["right_cap"] else W
