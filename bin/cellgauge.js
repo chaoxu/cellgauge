@@ -1,5 +1,10 @@
 #!/usr/bin/env node
 
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
+const { spawnSync } = require("node:child_process");
+
 const BAR_STYLE_IDS = ["ghb", "gfb", "nhb", "nfb", "ghn", "gfn", "nhn", "nfn"];
 const BAR_VARIANTS = ["l", "m", "r", "s"];
 
@@ -21,6 +26,22 @@ const DONUT_STYLE_IDS = ["hb", "fb", "hn", "fn"];
 const DONUT2_BASE = 0x10fe20;
 const DONUT2_STYLE_BLOCK = 2 * DONUT_STATES;
 
+const BAR_CONFIGS = [
+  null, // index 0 unused
+  { base: BAR1_BASE, levels: BAR1_LEVELS, stride: BAR1_STRIDE, styleBlock: BAR1_STYLE_BLOCK },
+  { base: BAR2_BASE, levels: BAR_LEVELS, stride: BAR_STRIDE, styleBlock: BAR2_STYLE_BLOCK },
+  { base: BAR3_BASE, levels: BAR_LEVELS, stride: BAR_STRIDE, styleBlock: BAR3_STYLE_BLOCK },
+];
+
+const PACKAGED_FONT_FILE = "CellGaugeSymbols.ttf";
+const PACKAGED_FONT_PATH = path.resolve(__dirname, "..", "fonts", PACKAGED_FONT_FILE);
+
+const BOOL_FLAGS = {
+  "--help": "help", "-h": "help",
+  "--donut": "donut", "--gapped": "gapped", "--full": "full",
+  "--border": "border", "--seam-space": "seamSpace",
+};
+
 function clampPct(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return 0;
@@ -38,7 +59,7 @@ function laneLevel(units, idx, levels) {
   return r;
 }
 
-function isNoBorderBarStyle(styleId) {
+function isNoBorderStyle(styleId) {
   return styleId.endsWith("n");
 }
 
@@ -57,27 +78,13 @@ function variantForIndex(i, width) {
   return "m";
 }
 
-function bar1Codepoint(styleId, variant, level) {
+function barCellCodepoint(config, styleId, variant, laneLevels) {
   const styleIdx = BAR_STYLE_IDS.indexOf(styleId);
   const variantIdx = BAR_VARIANTS.indexOf(variant);
-  const base = BAR1_BASE + styleIdx * BAR1_STYLE_BLOCK + variantIdx * BAR1_STRIDE;
-  return base + level;
-}
-
-function bar2Codepoint(styleId, variant, a, b) {
-  const styleIdx = BAR_STYLE_IDS.indexOf(styleId);
-  const variantIdx = BAR_VARIANTS.indexOf(variant);
-  const state = a * BAR_STRIDE + b;
-  const base = BAR2_BASE + styleIdx * BAR2_STYLE_BLOCK + variantIdx * (BAR_STRIDE * BAR_STRIDE);
-  return base + state;
-}
-
-function bar3Codepoint(styleId, variant, a, b, c) {
-  const styleIdx = BAR_STYLE_IDS.indexOf(styleId);
-  const variantIdx = BAR_VARIANTS.indexOf(variant);
-  const state = a * BAR_STRIDE * BAR_STRIDE + b * BAR_STRIDE + c;
-  const base = BAR3_BASE + styleIdx * BAR3_STYLE_BLOCK + variantIdx * (BAR_STRIDE * BAR_STRIDE * BAR_STRIDE);
-  return base + state;
+  let state = 0;
+  for (const l of laneLevels) state = state * config.stride + l;
+  const variantBlock = config.styleBlock / BAR_VARIANTS.length;
+  return config.base + styleIdx * config.styleBlock + variantIdx * variantBlock + state;
 }
 
 function donutCodepoint(styleId, side, level) {
@@ -87,86 +94,64 @@ function donutCodepoint(styleId, side, level) {
   return base + level;
 }
 
-function renderBar1(pct, width, styleId) {
-  const units = pctToUnits(pct, width, BAR1_LEVELS);
+function renderBar(pcts, width, styleId) {
+  const lanes = pcts.length;
+  const config = BAR_CONFIGS[lanes];
+  const allUnits = pcts.map((p) => pctToUnits(p, width, config.levels));
+  const noBorder = isNoBorderStyle(styleId);
   const out = [];
   for (let i = 0; i < width; i += 1) {
-    const level = laneLevel(units, i, BAR1_LEVELS);
-    if (isNoBorderBarStyle(styleId) && level === 0) {
+    const laneLevels = allUnits.map((u) => laneLevel(u, i, config.levels));
+    if (noBorder && laneLevels.every((l) => l === 0)) {
       out.push(" ");
       continue;
     }
     const variant = variantForIndex(i, width);
-    out.push(String.fromCodePoint(bar1Codepoint(styleId, variant, level)));
-  }
-  return out.join("");
-}
-
-function renderBar2(topPct, bottomPct, width, styleId) {
-  const topUnits = pctToUnits(topPct, width, BAR_LEVELS);
-  const botUnits = pctToUnits(bottomPct, width, BAR_LEVELS);
-  const out = [];
-  for (let i = 0; i < width; i += 1) {
-    const a = laneLevel(topUnits, i, BAR_LEVELS);
-    const b = laneLevel(botUnits, i, BAR_LEVELS);
-    if (isNoBorderBarStyle(styleId) && a === 0 && b === 0) {
-      out.push(" ");
-      continue;
-    }
-    const variant = variantForIndex(i, width);
-    out.push(String.fromCodePoint(bar2Codepoint(styleId, variant, a, b)));
-  }
-  return out.join("");
-}
-
-function renderBar3(aPct, bPct, cPct, width, styleId) {
-  const aUnits = pctToUnits(aPct, width, BAR_LEVELS);
-  const bUnits = pctToUnits(bPct, width, BAR_LEVELS);
-  const cUnits = pctToUnits(cPct, width, BAR_LEVELS);
-  const out = [];
-  for (let i = 0; i < width; i += 1) {
-    const a = laneLevel(aUnits, i, BAR_LEVELS);
-    const b = laneLevel(bUnits, i, BAR_LEVELS);
-    const c = laneLevel(cUnits, i, BAR_LEVELS);
-    if (isNoBorderBarStyle(styleId) && a === 0 && b === 0 && c === 0) {
-      out.push(" ");
-      continue;
-    }
-    const variant = variantForIndex(i, width);
-    out.push(String.fromCodePoint(bar3Codepoint(styleId, variant, a, b, c)));
+    out.push(String.fromCodePoint(barCellCodepoint(config, styleId, variant, laneLevels)));
   }
   return out.join("");
 }
 
 function renderDonut(pct, styleId) {
   const level = Math.round((clampPct(pct) / 100) * DONUT_LEVELS);
-  if (styleId.endsWith("n") && level === 0) return "  ";
-  const left = String.fromCodePoint(donutCodepoint(styleId, "l", level));
-  const right = String.fromCodePoint(donutCodepoint(styleId, "r", level));
-  return `${left}${right}`;
+  if (isNoBorderStyle(styleId) && level === 0) return "  ";
+  return String.fromCodePoint(donutCodepoint(styleId, "l", level))
+       + String.fromCodePoint(donutCodepoint(styleId, "r", level));
 }
 
 function usage() {
-  return [
-    "usage: cellgauge [percent ...] [options]",
-    "",
-    "options:",
-    "  --width N        bar width (default: 8)",
-    "  --gapped         use gapped style (default: no-gap)",
-    "  --full           use full-height style (default: H-height)",
-    "  --boarder        bordered style (typo alias kept intentionally)",
-    "  --border         bordered style",
-    "  --no-boarder     no-border style",
-    "  --no-border      no-border style",
-    "  --donut          render 2-cell donut (single percent only)",
-    "  --seam-space     append one trailing ASCII space (optional seam workaround)",
-    "",
-    "examples:",
-    "  cellgauge 42 --gapped --full --boarder",
-    "  cellgauge 42 --donut --full --boarder",
-    "  cellgauge 30 70 --gapped",
-    "  cellgauge 30 50 90 --gapped",
-  ].join("\n");
+  return `\
+usage: cellgauge [percent ...] [options]
+       cellgauge font-path
+       cellgauge install-font [--font-dir PATH]
+
+note:
+  all numeric inputs are treated as percentages (0..100)
+
+options:
+  --width N        bar width (default: 8)
+  --gapped         use gapped style (default: no-gap)
+  --full           use full-height style (default: H-height)
+  --border         bordered style
+  --no-border      no-border style
+  --donut          render 2-cell donut (single percent only)
+  --seam-space     append one trailing ASCII space (optional seam workaround)
+
+examples:
+  cellgauge 42 --gapped --full --border
+  cellgauge 42 --donut --full --border
+  cellgauge 30 70 --gapped
+  cellgauge 30 50 90 --gapped
+  cellgauge font-path
+  cellgauge install-font`;
+}
+
+function installUsage() {
+  return `\
+usage: cellgauge install-font [--font-dir PATH]
+
+options:
+  --font-dir PATH  target directory for CellGaugeSymbols.ttf`;
 }
 
 function isNumericLiteral(value) {
@@ -186,40 +171,12 @@ function parseArgs(argv) {
 
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
-    if (a === "--help" || a === "-h") {
-      out.help = true;
+    if (BOOL_FLAGS[a]) {
+      out[BOOL_FLAGS[a]] = true;
       continue;
     }
-    if (a === "--donut") {
-      out.donut = true;
-      continue;
-    }
-    if (a === "--gapped") {
-      out.gapped = true;
-      continue;
-    }
-    if (a === "--full") {
-      out.full = true;
-      continue;
-    }
-    if (a === "--boarder" || a === "--border") {
-      out.border = true;
-      continue;
-    }
-    if (a === "--no-boarder" || a === "--no-border") {
+    if (a === "--no-border") {
       out.border = false;
-      continue;
-    }
-    if (a === "--seam-space") {
-      out.seamSpace = true;
-      continue;
-    }
-    // Deprecated compatibility: ignore explicit lanes and always infer.
-    if (a.startsWith("--lanes=")) {
-      continue;
-    }
-    if (a === "--lanes" && i + 1 < argv.length) {
-      i += 1;
       continue;
     }
     if (a.startsWith("--width=")) {
@@ -232,10 +189,7 @@ function parseArgs(argv) {
       continue;
     }
     if (a.startsWith("-")) {
-      const parts = String(a)
-        .split(",")
-        .map((p) => p.trim())
-        .filter((p) => p !== "");
+      const parts = a.split(",").map((p) => p.trim()).filter((p) => p !== "");
       if (parts.length > 0 && parts.every((p) => isNumericLiteral(p))) {
         throw new Error("negative percent values are not allowed");
       }
@@ -243,7 +197,7 @@ function parseArgs(argv) {
     }
 
     // positional value(s); supports comma-separated list too
-    for (const piece of String(a).split(",")) {
+    for (const piece of a.split(",")) {
       const token = piece.trim();
       if (token === "") continue;
       if (isNumericLiteral(token) && Number(token) < 0) {
@@ -256,17 +210,96 @@ function parseArgs(argv) {
   return out;
 }
 
-function takeLaneValues(values, lanes) {
-  const nums = values.map((v) => clampPct(v));
-  if (nums.length === 0) return Array.from({ length: lanes }, () => 0);
-  if (nums.length >= lanes) return nums.slice(0, lanes);
-  const out = nums.slice();
-  while (out.length < lanes) out.push(0);
+function defaultFontDir() {
+  if (process.platform === "darwin") {
+    return path.join(os.homedir(), "Library", "Fonts");
+  }
+  if (process.platform === "linux") {
+    return path.join(os.homedir(), ".local", "share", "fonts");
+  }
+  if (process.platform === "win32") {
+    const localAppData = process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local");
+    return path.join(localAppData, "Microsoft", "Windows", "Fonts");
+  }
+  return null;
+}
+
+function parseInstallFontArgs(argv) {
+  const out = {
+    help: false,
+    fontDir: null,
+  };
+
+  for (let i = 0; i < argv.length; i += 1) {
+    const a = argv[i];
+    if (a === "--help" || a === "-h") {
+      out.help = true;
+      continue;
+    }
+    if (a.startsWith("--font-dir=")) {
+      out.fontDir = a.slice("--font-dir=".length);
+      continue;
+    }
+    if (a === "--font-dir" && i + 1 < argv.length) {
+      out.fontDir = argv[i + 1];
+      i += 1;
+      continue;
+    }
+    throw new Error(`unknown option for install-font: ${a}`);
+  }
+
+  if (out.help) {
+    return out;
+  }
+
+  out.fontDir = out.fontDir || defaultFontDir();
+  if (!out.fontDir) {
+    throw new Error("unable to infer default font directory on this platform; use --font-dir");
+  }
+
   return out;
 }
 
+function refreshLinuxFontCache(fontDir) {
+  if (process.platform !== "linux") return;
+  spawnSync("fc-cache", ["-f", fontDir], { stdio: "ignore" });
+}
+
+function installPackagedFont(fontDir) {
+  if (!fs.existsSync(PACKAGED_FONT_PATH)) {
+    throw new Error(`packaged font missing: ${PACKAGED_FONT_PATH}`);
+  }
+  const resolvedDir = path.resolve(fontDir);
+  fs.mkdirSync(resolvedDir, { recursive: true });
+  const outPath = path.join(resolvedDir, PACKAGED_FONT_FILE);
+  fs.copyFileSync(PACKAGED_FONT_PATH, outPath);
+  refreshLinuxFontCache(resolvedDir);
+  return outPath;
+}
+
+function takeLaneValues(values, lanes) {
+  return Array.from({ length: lanes }, (_, i) => clampPct(values[i] ?? 0));
+}
+
 function main() {
-  const args = parseArgs(process.argv.slice(2));
+  const argv = process.argv.slice(2);
+  if (argv[0] === "font-path") {
+    process.stdout.write(`${PACKAGED_FONT_PATH}\n`);
+    return;
+  }
+
+  if (argv[0] === "install-font") {
+    const installArgs = parseInstallFontArgs(argv.slice(1));
+    if (installArgs.help) {
+      process.stdout.write(`${installUsage()}\n`);
+      return;
+    }
+    const installedPath = installPackagedFont(installArgs.fontDir);
+    process.stdout.write(`${installedPath}\n`);
+    return;
+  }
+
+  const args = parseArgs(argv);
   if (args.help) {
     process.stdout.write(`${usage()}\n`);
     return;
@@ -291,24 +324,11 @@ function main() {
 
   const width = Math.max(1, Math.trunc(args.width));
   const lanes = Math.max(1, Math.min(3, args.values.length || 1));
+  const laneValues = takeLaneValues(args.values, lanes);
 
-  let glyph = "";
-  let style = "";
-
-  if (lanes === 1) {
-    // Single-lane bars have no inter-lane gap, so treat --gapped as a no-op.
-    style = buildBarStyle(false, args.full, args.border);
-    const [p] = takeLaneValues(args.values, 1);
-    glyph = renderBar1(p, width, style);
-  } else if (lanes === 2) {
-    style = buildBarStyle(args.gapped, args.full, args.border);
-    const [a, b] = takeLaneValues(args.values, 2);
-    glyph = renderBar2(a, b, width, style);
-  } else {
-    style = buildBarStyle(args.gapped, args.full, args.border);
-    const [a, b, c] = takeLaneValues(args.values, 3);
-    glyph = renderBar3(a, b, c, width, style);
-  }
+  // Single-lane bars have no inter-lane gap, so treat --gapped as a no-op.
+  const gapped = lanes === 1 ? false : args.gapped;
+  const glyph = renderBar(laneValues, width, buildBarStyle(gapped, args.full, args.border));
 
   if ([...glyph].length !== width) throw new Error("bar output width mismatch");
 
@@ -316,10 +336,14 @@ function main() {
   process.stdout.write(`${out}\n`);
 }
 
+process.stdout.on("error", (err) => {
+  if (err.code === "EPIPE") process.exit(0);
+  throw err;
+});
+
 try {
   main();
 } catch (err) {
-  const msg = err && err.message ? err.message : String(err);
-  process.stderr.write(`cellgauge: ${msg}\n`);
+  process.stderr.write(`cellgauge: ${err.message || err}\n`);
   process.exit(2);
 }

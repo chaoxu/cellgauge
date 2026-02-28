@@ -8,13 +8,16 @@
   },
   "files": [
     "bin",
+    "fonts",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
+    "test": "node --test",
+    "sync-font": "node scripts/sync-font-assets.js",
     "check": "node --check bin/cellgauge.js && node --check examples/showcase.js",
     "example": "node examples/showcase.js",
-    "smoke": "node bin/cellgauge.js 42 --full --boarder && node bin/cellgauge.js 20 70 --gapped --width 6 && node bin/cellgauge.js 45 --donut --full --boarder"
+    "smoke": "node bin/cellgauge.js 42 --full --border && node bin/cellgauge.js 20 70 --gapped --width 6 && node bin/cellgauge.js 45 --donut --full --border"
   },
   "keywords": [
     "terminal",
