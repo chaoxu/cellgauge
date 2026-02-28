@@ -71,10 +71,9 @@ function buildDonutStyle(full, border) {
   return `${full ? "f" : "h"}${border ? "b" : "n"}`;
 }
 
-function variantForIndex(i, width, noBorder = false, noBorderRightBleed = false) {
+function variantForIndex(i, width, noBorder = false) {
   if (noBorder) {
-    if (width === 1) return "s";
-    return noBorderRightBleed ? "m" : "r";
+    return "m";
   }
   if (width === 1) return "s";
   if (i === 0) return "l";
@@ -103,7 +102,6 @@ function renderBar(pcts, width, styleId) {
   const config = BAR_CONFIGS[lanes];
   const allUnits = pcts.map((p) => pctToUnits(p, width, config.levels));
   const laneLevelsByCell = Array.from({ length: width }, (_, i) => allUnits.map((u) => laneLevel(u, i, config.levels)));
-  const fullByCell = laneLevelsByCell.map((laneLevels) => laneLevels.every((l) => l === config.levels));
   const noBorder = isNoBorderStyle(styleId);
   const out = [];
   for (let i = 0; i < width; i += 1) {
@@ -112,11 +110,7 @@ function renderBar(pcts, width, styleId) {
       out.push(" ");
       continue;
     }
-    const rightBleedForNoBorder = noBorder
-      && i < width - 1
-      && fullByCell[i]
-      && fullByCell[i + 1];
-    let variant = variantForIndex(i, width, noBorder, rightBleedForNoBorder);
+    let variant = variantForIndex(i, width, noBorder);
     // Left-cap glyphs are deduplicated from the font when the cap is
     // invisible (no-border styles, or all lanes filled).  Redirect to
     // the equivalent capless variant so the codepoint lookup succeeds.

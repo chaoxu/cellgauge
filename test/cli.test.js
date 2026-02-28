@@ -35,18 +35,19 @@ test("installs packaged font into explicit directory", () => {
   assert.ok(files.some((name) => name.toLowerCase().endsWith(".ttf")));
 });
 
-test("no-border bars use non-bleeding last-cell variant", () => {
+test("no-border bars use m variant for all cells (left-anchored fill)", () => {
   const result = run(["100", "--width", "3", "--no-border"]);
   assert.equal(result.status, 0);
   const glyphs = Array.from(result.stdout.trimEnd());
   assert.equal(glyphs.length, 3);
 
+  // All fully-filled no-border cells use the same m variant
   const cps = glyphs.map((g) => g.codePointAt(0));
   assert.equal(cps[0], cps[1]);
-  assert.notEqual(cps[1], cps[2]);
+  assert.equal(cps[1], cps[2]);
 });
 
-test("no-border right bleed is used only for internal full cells", () => {
+test("no-border partial fill uses left-anchored m variant", () => {
   const result = run(["70", "--width", "4", "--no-border"]);
   assert.equal(result.status, 0);
 
@@ -68,9 +69,10 @@ test("no-border right bleed is used only for internal full cells", () => {
     return BAR_VARIANTS[variantIndex];
   }
 
+  // All non-empty no-border cells use m (left-anchored) for gap-free rendering
   assert.equal(decodeVariant(glyphs[0]), "m");
-  assert.equal(decodeVariant(glyphs[1]), "r");
-  assert.equal(decodeVariant(glyphs[2]), "r");
+  assert.equal(decodeVariant(glyphs[1]), "m");
+  assert.equal(decodeVariant(glyphs[2]), "m");
 });
 
 test("bordered width=1 at 100% redirects s to r (left cap hidden by fill)", () => {
