@@ -1,0 +1,27 @@
+{
+  "name": "cellgauge",
+  "version": "0.1.0",
+  "description": "Compact Unicode progress glyphs for terminal status bars",
+  "type": "commonjs",
+  "bin": {
+    "cellgauge": "bin/cellgauge.js"
+  },
+  "files": [
+    "bin",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "check": "node --check bin/cellgauge.js && node --check examples/showcase.js",
+    "example": "node examples/showcase.js",
+    "smoke": "node bin/cellgauge.js 42 --full --boarder && node bin/cellgauge.js 20 70 --gapped --width 6 && node bin/cellgauge.js 45 --donut --full --boarder"
+  },
+  "keywords": [
+    "terminal",
+    "unicode",
+    "statusbar",
+    "progress",
+    "glyph"
+  ],
+  "license": "MIT"
+}
