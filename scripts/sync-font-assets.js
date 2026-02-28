@@ -1,15 +1,14 @@
 #!/usr/bin/env node
 
 const fs = require("node:fs");
-const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
 const ROOT_DIR = path.resolve(__dirname, "..");
-const DEFAULT_SOURCE_DIR = path.join(os.homedir(), "playground", "openusage-logos-font");
+const DEFAULT_SOURCE_DIR = ROOT_DIR;
 const TARGET_DIR = path.join(ROOT_DIR, "fonts");
 
-const SOURCE_TTF = "OpenUsageLogos.ttf";
+const SOURCE_TTF = path.join("fonts", "CellGaugeSymbols.ttf");
 const TARGET_TTF = "CellGaugeSymbols.ttf";
 
 function fail(message) {
@@ -20,7 +19,7 @@ function fail(message) {
 function parseArgs(argv) {
   const out = {
     sourceDir: process.env.CELLGAUGE_FONT_SOURCE_DIR || DEFAULT_SOURCE_DIR,
-    skipBuild: false,
+    skipBuild: true,
   };
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -68,7 +67,9 @@ function main() {
   }
 
   const sourceDistDir = path.join(sourceDir, "dist");
-  const sourceTtfPath = path.join(sourceDistDir, SOURCE_TTF);
+  const sourceTtfPath = fs.existsSync(path.join(sourceDistDir, SOURCE_TTF))
+    ? path.join(sourceDistDir, SOURCE_TTF)
+    : path.join(sourceDir, SOURCE_TTF);
 
   if (!fs.existsSync(sourceTtfPath)) {
     fail(`missing source TTF: ${sourceTtfPath}`);
@@ -76,6 +77,10 @@ function main() {
 
   fs.mkdirSync(TARGET_DIR, { recursive: true });
   const targetTtfPath = path.join(TARGET_DIR, TARGET_TTF);
+  if (path.resolve(sourceTtfPath) === path.resolve(targetTtfPath)) {
+    process.stdout.write(`already synced ${targetTtfPath}\n`);
+    return;
+  }
   fs.copyFileSync(sourceTtfPath, targetTtfPath);
 
   process.stdout.write(`synced ${targetTtfPath}\n`);

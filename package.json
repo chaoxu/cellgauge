@@ -1,6 +1,6 @@
 {
   "name": "cellgauge",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Compact Unicode progress glyphs for terminal status bars",
   "type": "commonjs",
   "bin": {
