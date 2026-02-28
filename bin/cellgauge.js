@@ -8,7 +8,7 @@ const { spawnSync } = require("node:child_process");
 const BAR_STYLE_IDS = ["ghb", "gfb", "nhb", "nfb", "ghn", "gfn", "nhn", "nfn"];
 const BAR_VARIANTS = ["l", "m", "r", "s"];
 
-const BAR1_LEVELS = 16;
+const BAR1_LEVELS = 8;
 const BAR1_STRIDE = BAR1_LEVELS + 1;
 const BAR1_BASE = 0x10fa20;
 const BAR1_STYLE_BLOCK = BAR_VARIANTS.length * BAR1_STRIDE;
@@ -71,8 +71,11 @@ function buildDonutStyle(full, border) {
   return `${full ? "f" : "h"}${border ? "b" : "n"}`;
 }
 
-function variantForIndex(i, width, noBorder = false) {
-  if (noBorder) return width === 1 ? "s" : "m";
+function variantForIndex(i, width, noBorder = false, noBorderRightBleed = false) {
+  if (noBorder) {
+    if (width === 1) return "s";
+    return noBorderRightBleed ? "m" : "r";
+  }
   if (width === 1) return "s";
   if (i === 0) return "l";
   if (i === width - 1) return "r";
@@ -99,15 +102,27 @@ function renderBar(pcts, width, styleId) {
   const lanes = pcts.length;
   const config = BAR_CONFIGS[lanes];
   const allUnits = pcts.map((p) => pctToUnits(p, width, config.levels));
+  const laneLevelsByCell = Array.from({ length: width }, (_, i) => allUnits.map((u) => laneLevel(u, i, config.levels)));
+  const fullByCell = laneLevelsByCell.map((laneLevels) => laneLevels.every((l) => l === config.levels));
   const noBorder = isNoBorderStyle(styleId);
   const out = [];
   for (let i = 0; i < width; i += 1) {
-    const laneLevels = allUnits.map((u) => laneLevel(u, i, config.levels));
+    const laneLevels = laneLevelsByCell[i];
     if (noBorder && laneLevels.every((l) => l === 0)) {
       out.push(" ");
       continue;
     }
-    const variant = variantForIndex(i, width, noBorder);
+    const rightBleedForNoBorder = noBorder
+      && i < width - 1
+      && fullByCell[i]
+      && fullByCell[i + 1];
+    let variant = variantForIndex(i, width, noBorder, rightBleedForNoBorder);
+    // Left-cap glyphs are deduplicated from the font when the cap is
+    // invisible (no-border styles, or all lanes filled).  Redirect to
+    // the equivalent capless variant so the codepoint lookup succeeds.
+    if ((variant === "l" || variant === "s") && (noBorder || laneLevels.every((l) => l > 0))) {
+      variant = variant === "l" ? "m" : "r";
+    }
     out.push(String.fromCodePoint(barCellCodepoint(config, styleId, variant, laneLevels)));
   }
   return out.join("");

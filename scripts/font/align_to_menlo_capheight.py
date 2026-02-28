@@ -15,7 +15,7 @@ from fontTools.ttLib.tables._c_m_a_p import CmapSubtable
 
 LEVELS = 8
 STRIDE = LEVELS + 1
-BAR1_LEVELS = 16
+BAR1_LEVELS = 8
 BAR1_STRIDE = BAR1_LEVELS + 1
 DONUT_LEVELS = 32
 
@@ -322,8 +322,8 @@ def align_group(glyf, hmtx, names, info_by_name, target_y_min, target_h, target_
                 g = recalc_bounds(glyf, name)
                 hmtx[name] = (int(round(target_aw)), int(round(g.xMin)))
 
-        # Increase x-span for join-bearing variants; this creates true overlap
-        # at m->m and m->r boundaries after the translation step below.
+        # Increase x-span for join-bearing variants. The translation phase then
+        # keeps left edges flush while allowing controlled right overhang.
         stretch = BAR_JOIN_X_STRETCH_MIN
         rep_m = pick_representative(names, info_by_name, "m")
         if rep_m:
@@ -334,7 +334,7 @@ def align_group(glyf, hmtx, names, info_by_name, target_y_min, target_h, target_
                 stretch = max(stretch, desired_w / rw)
         for name in names:
             v = info_by_name[name]["variant"]
-            if v not in ("m", "r"):
+            if v not in ("l", "m"):
                 continue
             g = recalc_bounds(glyf, name)
             if getattr(g, "numberOfContours", 0) == 0:
@@ -362,7 +362,9 @@ def align_group(glyf, hmtx, names, info_by_name, target_y_min, target_h, target_
                 continue
 
             if v == "m":
-                dx = -bar_join_overlap - g.xMin
+                # Right-bleed strategy: keep left edge flush and let widened
+                # outlines overhang to the right.
+                dx = -g.xMin
             elif v == "l":
                 dx = left_pad - g.xMin
             elif v == "r":
@@ -403,7 +405,8 @@ def align_group(glyf, hmtx, names, info_by_name, target_y_min, target_h, target_
         if v == "l":
             dx = (aw_i + donut_join_overlap) - g.xMax
         else:  # r
-            dx = -donut_join_overlap - g.xMin
+            # Right-bleed strategy: no left overhang on the right-half glyph.
+            dx = -g.xMin
 
         apply_transform(glyf, name, (1, 0, 0, 1, dx, 0))
         g = recalc_bounds(glyf, name)

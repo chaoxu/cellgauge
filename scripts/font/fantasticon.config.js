@@ -2,7 +2,7 @@ const path = require("node:path");
 
 const LEVELS = 8;
 const STRIDE = LEVELS + 1;
-const BAR1_LEVELS = 16;
+const BAR1_LEVELS = 8;
 const BAR1_STRIDE = BAR1_LEVELS + 1;
 const DONUT_LEVELS = 32;
 const DONUT_STATES = DONUT_LEVELS + 1;
@@ -22,11 +22,21 @@ const BAR2_STYLE_BLOCK = BAR_VARIANTS.length * STRIDE * STRIDE;
 const BAR3_STYLE_BLOCK = BAR_VARIANTS.length * STRIDE * STRIDE * STRIDE;
 const DONUT2_STYLE_BLOCK = DONUT_SIDES.length * DONUT_STATES;
 
+function hasLeftCap(variant) {
+  return variant === "l" || variant === "s";
+}
+
+function leftCapHidden(noBorder, levels) {
+  if (noBorder) return true;
+  return levels.every((l) => l > 0);
+}
+
 function buildCodepoints() {
   const out = {};
 
   for (let styleIdx = 0; styleIdx < BAR_STYLE_IDS.length; styleIdx += 1) {
     const style = BAR_STYLE_IDS[styleIdx];
+    const noBorder = style.endsWith("n");
     const bar3StyleBase = TMP_BAR3_BASE + styleIdx * BAR3_STYLE_BLOCK;
     const bar2StyleBase = TMP_BAR2_BASE + styleIdx * BAR2_STYLE_BLOCK;
     const bar1StyleBase = TMP_BAR1_BASE + styleIdx * BAR1_STYLE_BLOCK;
@@ -42,6 +52,8 @@ function buildCodepoints() {
       for (let a = 0; a <= LEVELS; a += 1) {
         for (let b = 0; b <= LEVELS; b += 1) {
           for (let c = 0; c <= LEVELS; c += 1) {
+            if (noBorder && a === 0 && b === 0 && c === 0) continue;
+            if (hasLeftCap(variant) && leftCapHidden(noBorder, [a, b, c])) continue;
             const state = a * STRIDE * STRIDE + b * STRIDE + c;
             out[`bar3_${style}_${variant}_${a}${b}${c}`] = bar3VariantBase + state;
           }
@@ -50,12 +62,16 @@ function buildCodepoints() {
 
       for (let a = 0; a <= LEVELS; a += 1) {
         for (let b = 0; b <= LEVELS; b += 1) {
+          if (noBorder && a === 0 && b === 0) continue;
+          if (hasLeftCap(variant) && leftCapHidden(noBorder, [a, b])) continue;
           const state = a * STRIDE + b;
           out[`bar2_${style}_${variant}_${a}${b}`] = bar2VariantBase + state;
         }
       }
 
       for (let level = 0; level <= BAR1_LEVELS; level += 1) {
+        if (noBorder && level === 0) continue;
+        if (hasLeftCap(variant) && leftCapHidden(noBorder, [level])) continue;
         const state = level.toString().padStart(2, "0");
         out[`bar1_${style}_${variant}_${state}`] = bar1VariantBase + level;
       }
@@ -64,11 +80,13 @@ function buildCodepoints() {
 
   for (let styleIdx = 0; styleIdx < DONUT_STYLES.length; styleIdx += 1) {
     const style = DONUT_STYLES[styleIdx];
+    const noBorder = style.endsWith("n");
     const styleBase = TMP_DONUT2_BASE + styleIdx * DONUT2_STYLE_BLOCK;
     for (let sideIdx = 0; sideIdx < DONUT_SIDES.length; sideIdx += 1) {
       const side = DONUT_SIDES[sideIdx];
       const sideBase = styleBase + sideIdx * DONUT_STATES;
       for (let level = 0; level <= DONUT_LEVELS; level += 1) {
+        if (noBorder && level === 0) continue;
         const state = level.toString().padStart(2, "0");
         out[`donut2_${style}_${side}_${state}`] = sideBase + level;
       }

@@ -28,7 +28,7 @@ from pathlib import Path
 DEFAULT_OUT_DIR = Path(__file__).resolve().parent.parent / "icons"
 OUT_DIR = DEFAULT_OUT_DIR
 LEVELS = 8
-BAR1_LEVELS = 16
+BAR1_LEVELS = 8
 DONUT_LEVELS = 32
 
 W = 2000
@@ -286,6 +286,9 @@ def generate_donut2() -> None:
         for level in range(DONUT_LEVELS + 1):
             progress_end = start_deg + (360.0 * level / DONUT_LEVELS)
             lvl = f"{level:02d}"
+            if not with_border and level == 0:
+                # Runtime renders no-border empty donut as plain spaces.
+                continue
 
             for side in ("l", "r"):
                 cx = W if side == "l" else 0
@@ -354,9 +357,17 @@ def main() -> int:
         with_gap, full_mode, with_border = style_props(style_id)
         bounds = lane_bounds(lanes, with_gap, full_mode)
         prefix = f"bar{lanes}_{style_id}"
+        skip_empty_no_border = not with_border
 
         for levels, state in state_iter(lanes):
+            if skip_empty_no_border and all(level == 0 for level in levels):
+                # Runtime renders no-border empty bar cells as plain spaces.
+                continue
             for variant, flags in variants.items():
+                if flags["left_cap"] and (
+                    not with_border or all(level > 0 for level in levels)
+                ):
+                    continue
                 x0 = OUTER_PAD if flags["left_cap"] else 0
                 x1 = W - OUTER_PAD if flags["right_cap"] else W
 
