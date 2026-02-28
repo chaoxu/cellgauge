@@ -28,6 +28,10 @@ function parseArgs(argv) {
       out.skipBuild = true;
       continue;
     }
+    if (a === "--build") {
+      out.skipBuild = false;
+      continue;
+    }
     if (a.startsWith("--source-dir=")) {
       out.sourceDir = a.slice("--source-dir=".length);
       continue;
@@ -67,12 +71,16 @@ function main() {
   }
 
   const sourceDistDir = path.join(sourceDir, "dist");
-  const sourceTtfPath = fs.existsSync(path.join(sourceDistDir, SOURCE_TTF))
-    ? path.join(sourceDistDir, SOURCE_TTF)
-    : path.join(sourceDir, SOURCE_TTF);
+  const sourceCandidates = [
+    path.join(sourceDistDir, SOURCE_TTF),
+    path.join(sourceDir, SOURCE_TTF),
+    path.join(sourceDir, ".font-build", "dist", TARGET_TTF),
+    path.join(sourceDir, "dist", TARGET_TTF),
+  ];
+  const sourceTtfPath = sourceCandidates.find((candidate) => fs.existsSync(candidate));
 
-  if (!fs.existsSync(sourceTtfPath)) {
-    fail(`missing source TTF: ${sourceTtfPath}`);
+  if (!sourceTtfPath) {
+    fail(`missing source TTF; checked: ${sourceCandidates.join(", ")}`);
   }
 
   fs.mkdirSync(TARGET_DIR, { recursive: true });

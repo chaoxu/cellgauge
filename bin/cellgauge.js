@@ -71,7 +71,8 @@ function buildDonutStyle(full, border) {
   return `${full ? "f" : "h"}${border ? "b" : "n"}`;
 }
 
-function variantForIndex(i, width) {
+function variantForIndex(i, width, noBorder = false) {
+  if (noBorder) return width === 1 ? "s" : "m";
   if (width === 1) return "s";
   if (i === 0) return "l";
   if (i === width - 1) return "r";
@@ -106,7 +107,7 @@ function renderBar(pcts, width, styleId) {
       out.push(" ");
       continue;
     }
-    const variant = variantForIndex(i, width);
+    const variant = variantForIndex(i, width, noBorder);
     out.push(String.fromCodePoint(barCellCodepoint(config, styleId, variant, laneLevels)));
   }
   return out.join("");
@@ -140,8 +141,8 @@ options:
 examples:
   cellgauge 42 --gapped --full --border
   cellgauge 42 --donut --full --border
-  cellgauge 30 70 --gapped
-  cellgauge 30 50 90 --gapped
+  cellgauge 30 70 --gapped --border
+  cellgauge 23 67 91 --gapped --border
   cellgauge font-path
   cellgauge install-font`;
 }

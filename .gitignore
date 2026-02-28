@@ -1,4 +1,5 @@
 node_modules/
+.font-build/
 *.tgz
 .DS_Store
 npm-debug.log*

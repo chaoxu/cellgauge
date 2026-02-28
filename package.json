@@ -15,6 +15,7 @@
   "scripts": {
     "test": "node --test",
     "sync-font": "node scripts/sync-font-assets.js",
+    "font:rebuild": "node scripts/rebuild-font.js",
     "check": "node --check bin/cellgauge.js && node --check examples/showcase.js",
     "example": "node examples/showcase.js",
     "smoke": "node bin/cellgauge.js 42 --full --border && node bin/cellgauge.js 20 70 --gapped --width 6 && node bin/cellgauge.js 45 --donut --full --border"

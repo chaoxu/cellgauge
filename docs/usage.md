@@ -38,13 +38,13 @@ cellgauge 42
 ### Two-lane bar
 
 ```bash
-cellgauge 20 65 --gapped --width 6
+cellgauge 20 65 --gapped --border --width 6
 ```
 
 ### Three-lane bar
 
 ```bash
-cellgauge 20 45 70 --gapped --full
+cellgauge 20 45 70 --gapped --border
 ```
 
 If you pass more than 3 values, only the first 3 are used.
@@ -103,7 +103,10 @@ Then set your terminal font (or fallback font) to include this font.
 cellgauge "$CPU_PERCENT" --width 10
 
 # Memory + swap usage stacked
-cellgauge "$MEM_PERCENT" "$SWAP_PERCENT" --gapped --width 8
+cellgauge "$MEM_PERCENT" "$SWAP_PERCENT" --gapped --border --width 8
+
+# RX + TX + error rate stacked (gapped, non-full, bordered)
+cellgauge "$RX_PERCENT" "$TX_PERCENT" "$ERR_PERCENT" --gapped --border --width 8
 
 # Donut in a compact prompt segment
 cellgauge "$BATTERY_PERCENT" --donut --full --border

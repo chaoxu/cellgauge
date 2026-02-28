@@ -16,11 +16,11 @@ npm i -g cellgauge
 # Single-lane progress bar (42%)
 cellgauge 42
 
-# Two-lane stacked bar (20% and 65%)
-cellgauge 20 65 --gapped --width 6
+# Two-lane stacked bar (gapped, non-full, bordered)
+cellgauge 20 65 --gapped --border --width 6
 
-# Three-lane stacked bar (20%, 45%, 70%)
-cellgauge 20 45 70 --gapped --full
+# Three-lane stacked bar (gapped, non-full, bordered)
+cellgauge 20 45 70 --gapped --border
 
 # Donut chart (42%)
 cellgauge 42 --donut --full --border
@@ -87,6 +87,24 @@ Default chart output uses Private Use Area Unicode glyphs from the bundled termi
 ## More Documentation
 
 - [Usage Guide](docs/usage.md)
+- [Font Build Notes](docs/font-build.md)
+
+## Font Generation (Maintainers)
+
+Font generation is now in-repo under `scripts/font/`.
+
+```bash
+# Rebuild chart glyph font from source SVG generator + aligner
+npm run font:rebuild
+```
+
+Requirements:
+
+- Python 3 with `fonttools` installed (`pip install -r scripts/font/requirements.txt`)
+- `fantasticon` (auto-used from local `node_modules` or via `npx fantasticon@4.1.0`)
+
+This generator code is not part of the published npm payload. The package
+publish allowlist only includes `bin/`, `fonts/`, `README.md`, and `LICENSE`.
 
 ## Notes
 
