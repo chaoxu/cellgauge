@@ -8,6 +8,7 @@ Usage:
 
 import re
 import sys
+from fontTools import subset
 from fontTools.pens.transformPen import TransformPen
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 from fontTools.ttLib import TTFont, newTable
@@ -59,6 +60,25 @@ FONT_SUBFAMILY = "Regular"
 FONT_FULL_NAME = f"{FONT_FAMILY} {FONT_SUBFAMILY}"
 FONT_PS_NAME = "CellGaugeSymbols-Regular"
 FONT_UNIQUE_ID = f"{FONT_FULL_NAME};{FONT_PS_NAME}"
+
+
+def subset_to_encoded_glyphs(ttfont):
+    cmap = ttfont["cmap"].getBestCmap() or {}
+    keep_unicodes = list(cmap.keys())
+    options = subset.Options()
+    options.notdef_glyph = True
+    options.notdef_outline = True
+    options.recommended_glyphs = True
+    options.hinting = True
+    options.layout_features = ["*"]
+    options.legacy_cmap = True
+    subsetter = subset.Subsetter(options=options)
+    subsetter.populate(unicodes=keep_unicodes)
+    subsetter.subset(ttfont)
+
+
+def set_post_format_3(ttfont):
+    ttfont["post"].formatType = 3.0
 
 
 def apply_transform(glyf_table, glyph_name, transform):
@@ -496,7 +516,7 @@ def main():
             full_cmap[codepoint_for_info(info)] = gname
             continue
         full_cmap[cp] = gname
-    full_cmap = dict(sorted(full_cmap.items(), key=lambda item: item[0]))
+    full_cmap = dict(sorted(full_cmap.items()))
 
     cmap_table = newTable("cmap")
     cmap_table.tableVersion = 0
@@ -519,6 +539,8 @@ def main():
         cmap_table.tables.append(subtable_4)
 
     icon_font["cmap"] = cmap_table
+    subset_to_encoded_glyphs(icon_font)
+    set_post_format_3(icon_font)
 
     icon_font.save(icon_path)
 

@@ -26,9 +26,19 @@ function hasLeftCap(variant) {
   return variant === "l" || variant === "s";
 }
 
-function leftCapHidden(noBorder, levels) {
-  if (noBorder) return true;
+function leftCapHidden(levels) {
   return levels.every((l) => l > 0);
+}
+
+function shouldEmitBarGlyph(lanes, style, variant, levels) {
+  const noBorder = style.endsWith("n");
+  if (lanes === 1 && style.startsWith("g")) return false;
+  if (noBorder) {
+    if (levels.every((l) => l === 0)) return false;
+    if (variant !== "m") return false;
+  }
+  if (hasLeftCap(variant) && leftCapHidden(levels)) return false;
+  return true;
 }
 
 function buildCodepoints() {
@@ -36,7 +46,6 @@ function buildCodepoints() {
 
   for (let styleIdx = 0; styleIdx < BAR_STYLE_IDS.length; styleIdx += 1) {
     const style = BAR_STYLE_IDS[styleIdx];
-    const noBorder = style.endsWith("n");
     const bar3StyleBase = TMP_BAR3_BASE + styleIdx * BAR3_STYLE_BLOCK;
     const bar2StyleBase = TMP_BAR2_BASE + styleIdx * BAR2_STYLE_BLOCK;
     const bar1StyleBase = TMP_BAR1_BASE + styleIdx * BAR1_STYLE_BLOCK;
@@ -52,8 +61,7 @@ function buildCodepoints() {
       for (let a = 0; a <= LEVELS; a += 1) {
         for (let b = 0; b <= LEVELS; b += 1) {
           for (let c = 0; c <= LEVELS; c += 1) {
-            if (noBorder && a === 0 && b === 0 && c === 0) continue;
-            if (hasLeftCap(variant) && leftCapHidden(noBorder, [a, b, c])) continue;
+            if (!shouldEmitBarGlyph(3, style, variant, [a, b, c])) continue;
             const state = a * STRIDE * STRIDE + b * STRIDE + c;
             out[`bar3_${style}_${variant}_${a}${b}${c}`] = bar3VariantBase + state;
           }
@@ -62,16 +70,14 @@ function buildCodepoints() {
 
       for (let a = 0; a <= LEVELS; a += 1) {
         for (let b = 0; b <= LEVELS; b += 1) {
-          if (noBorder && a === 0 && b === 0) continue;
-          if (hasLeftCap(variant) && leftCapHidden(noBorder, [a, b])) continue;
+          if (!shouldEmitBarGlyph(2, style, variant, [a, b])) continue;
           const state = a * STRIDE + b;
           out[`bar2_${style}_${variant}_${a}${b}`] = bar2VariantBase + state;
         }
       }
 
       for (let level = 0; level <= BAR1_LEVELS; level += 1) {
-        if (noBorder && level === 0) continue;
-        if (hasLeftCap(variant) && leftCapHidden(noBorder, [level])) continue;
+        if (!shouldEmitBarGlyph(1, style, variant, [level])) continue;
         const state = level.toString().padStart(2, "0");
         out[`bar1_${style}_${variant}_${state}`] = bar1VariantBase + level;
       }
