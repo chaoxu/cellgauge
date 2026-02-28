@@ -4,6 +4,8 @@ Terminal progress bar and donut chart glyphs.
 
 `cellgauge` renders compact chart glyphs for terminal status lines. All numeric inputs are interpreted as percentages (`0` to `100`).
 
+<img width="273" height="394" alt="image" src="https://github.com/user-attachments/assets/2993f36c-7f97-45f5-b405-ac79c5ec0049" />
+
 ## Install
 
 ```bash
